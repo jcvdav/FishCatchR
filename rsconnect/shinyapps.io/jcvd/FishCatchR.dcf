@@ -5,9 +5,9 @@ account: jcvd
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6843462
-bundleId: 6242205
+bundleId: 7160812
 url: https://jcvd.shinyapps.io/FishCatchR/
-when: 1661550306.78643
-lastSyncTime: 1661550306.78644
+when: 1682970850.70738
+lastSyncTime: 1682970850.70739
 asMultiple: FALSE
 asStatic: FALSE

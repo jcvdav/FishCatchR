@@ -9,95 +9,122 @@
 
 library(here)
 library(ggimage)
+library(googledrive)
+library(googlesheets4)
 library(DT)
 library(tidyverse)
-library(shiny)
+library(fresh)
 library(shinydashboard)
+library(shiny)
 
 source("functions.R")
+
+options(
+  # whenever there is one account token found, use the cached token
+  gargle_oauth_email = TRUE,
+  # specify auth tokens should be stored in a hidden directory ".secrets"
+  gargle_oauth_cache = ".secrets"
+)
+
+my_theme <- create_theme(
+  adminlte_color(
+    blue = "#175E54",
+    gray_lte = "#175E54", 
+    red = "#8C1515",
+    light_blue = "#8C1515",
+    aqua = "#175E54"
+  ),
+  adminlte_global(info_box_bg = "#175E54")
+)
 
 
 ################################################################################
 # Model parameters
 K <- 100                                                                        # population carrying capacity
-iterations <- 50                                                                # number of iterations
+iterations <- 100                                                               # number of iterations
 gr <- 0.1                                                                       # 10 percent annual rate of increase
 catprob <- 0.1                                                                  # probability of a catastrophic event
 catmort <- 0.5                                                                  # catastrophic mortality
 
 # Derivated parameters
-N <- 0.75 * K                                                                   # Initial Conditions
+N <- K                                                                          # Initial Conditions
 set.seed(20)
-ge <- rlnormcustom(iterations, m = 1, s = 0.1)                                  # vector of shocks
 ce <- ifelse(runif(iterations) > catprob, 1, (1 - catmort))                     # vector of mortalities
-df <- tibble(Nc = N, Np = 0, obsN = 0, h = 0, TotCatch = 0, ge = 0, ce = 0, t = 0)
+
+df <- tibble(
+  last_N = 0,
+  H = 0,
+  E = 0,
+  Nt = N,
+  h = 0,
+  ce = 0,
+  t = 0
+)
 
 ## DEFINE UI ###################################################################
 # Define APP header
 
 header <- dashboardHeader(
+  disable = T,
   title = "Economic Games App (beta)"
   )
 
 sidebar <- dashboardSidebar(
+  disable = T,
   sidebarMenu(
     menuItem(
       tabName = "game",
       text = "Juego",
-      icon = icon("fish")),
-    menuItem(
-      tabName = "results",
-      text = "Resultados",
-      icon = icon("table")
-    ),
-    menuItem(
-      tabName = "settings",
-      text = "Ajustes",
-      icon = icon("gear")
-      )
+      icon = icon("fish"))
   )
 )
 
 body <- dashboardBody(
+  # use_theme(my_theme),
   tabItems(
     tabItem(
       tabName = "game",
-      h2("Updated August 26, 2022"),
       fluidRow(
         box(
-          title = "Juego recreado",
-          status = "primary",
-          width = 12,
-          column(
-            width = 4,
-            box(
-              width = 12,
-              uiOutput(
-                outputId = "harvest_slider"
-              ),
-              actionButton(
-                inputId = "button",
-                label = "Go fish!"
-              ),
-            )
-          ),
-          column(
-            width = 8,
-            box(
-              width = 12,
-              plotOutput(
-                outputId = "pop_space"
-              ),
-              plotOutput(
-                outputId = "catch_others"
-              ),
-              # plotOutput(
-              #   outputId = "pop_ts"
-              # ) 
-            )
+          plotOutput(
+            outputId = "pop_space",
+            height = 300
           )
         )
       ),
+      fluidRow(
+        box(
+          width = 12,
+            fluidRow(
+              infoBoxOutput(
+                outputId = "your_catch",
+                width = 6
+              ),
+              infoBoxOutput(
+                outputId = "others_total_catch",
+                width = 6
+              )
+            ),
+          wellPanel(
+            fluidRow(
+              column(
+                width = 10,
+                uiOutput(
+                  outputId = "harvest_slider"
+                )
+                ),
+              column(
+                width = 2,
+                actionButton(
+                  inputId = "go_fish",
+                  label = "Pescar",
+                  icon = icon("fish")
+                )
+              )
+            )
+          )
+        )
+      )
     ),
     tabItem(
       tabName = "results",
@@ -108,70 +135,11 @@ body <- dashboardBody(
           dataTableOutput(
             outputId = "results"
           )
-        )
-      )
-    ),
-    tabItem(
-      tabName = "settings",
-      fluidRow(
+        ),
         box(
-          title = "Population parameters",
-          status = "primary",
           width = 12,
-          collapsible = T,
-          column(
-            width = 4,
-            box(
-              width = 12,
-              numericInput(
-                inputId = "iterations",
-                label = "Iterations",
-                min = 1,
-                max = 50,
-                value = iterations
-              ),
-              numericInput(
-                inputId = "InitCond",
-                label = "Initial conditions",
-                min = 0,
-                max = K,
-                value = N
-              ),
-              numericInput(
-                inputId = "gr",
-                label = "Growht rate",
-                min = 0,
-                max = 1,
-                value = gr
-              ),
-              numericInput(
-                inputId = "catprob",
-                label = "Probability of catastrophic event",
-                min = 0,
-                max = 1,
-                value = catprob
-              ),
-              numericInput(
-                inputId = "catmort",
-                label = "Catastrophic mortality rate",
-                min = 0,
-                max = 1,
-                value = catmort
-              ),
-              actionButton(
-                inputId = "update_pars",
-                label = "Update & restart"
-              )
-            )
-          ),
-          column(
-            width = 8,
-            box(
-              width = 12,
-              plotOutput(outputId = "pop_plot"),
-              plotOutput(outputId = "ge_plot"),
-              plotOutput(outputId = "ce_plot")
-            )
+          plotOutput(
+            outputId = "pop_ts"
           )
         )
       )
@@ -180,147 +148,208 @@ body <- dashboardBody(
 )
 
 # Combine all elements
-ui <- dashboardPage(header = header, sidebar = sidebar, body = body)
+ui <- dashboardPage(header = header,
+                    sidebar = sidebar,
+                    body = body,
+                    use_theme(my_theme))
 
 # Define server logic
 server <- function(input, output) {
+  session_id <- openssl::md5(timestamp(quiet = T))
   
-  query_modal <- modalDialog(
-    title = "Bienvenido",
+  info_modal <- modalDialog(
+    title = "Paso 1 de 2",
     size = "l",
     fluidRow(
-        box(
-          width = 12,
-          status = "primary",
-          title = "Instrucciones",
-          p("1) The school of fish reflects current population size."),
-          p("2) The graph on the bottom will show you the total catch by other fishers in the previous round."),
-          p("3) Use the slider on the left to indicate the number of fish you would like to harvest. The school of fish will be colored to reflect this."),
-          p("4) When you are sure how many fish you want to harvest, click on the `Go Fish!` button."),
-          p("5) Both graphs will update to show you catch by others in the last round, and the new population size.")),
-        box(
-          width = 12,
-          status = "primary",
-          title = "Other notes",
-          p("Use the results tab to look at all the data"),
-          p("Use the settings tab to reconfigure parameters"),
-          p("Both of this can be password protected")
+      box(
+        title = "Ingresa tus datos:",
+        width = 12,
+        status = "primary",
+        checkboxGroupInput(
+          inputId = "age_bracket",
+          label = "Rango de edad:",
+          choices = c("menos de 20" = 10,
+                      "20-30" = 25,
+                      "30-40" = 35,
+                      "40-50" = 45,
+                      "50-60" = 55,
+                      "más de 60" = 65,
+                      "Ninguno" = 0),
+          inline = T),
+        checkboxGroupInput(
+          inputId = "gender",
+          label = "Género",
+          choices = c("Femenino" = "F",
+                      "Masculino" = "M",
+                      "Otro" = "O",
+                      "Ninguno" = "N"),
+          inline = T),
+        checkboxGroupInput(
+          inputId = "region",
+          label = "Región",
+          choices = c("BC Pacifico" = 1,
+                      "Golfo de California" = 2,
+                      "Pacífico" = 3,
+                      "Golfo de México" = 4,
+                      "Caribe" = 5,
+                      "Ninguno" = 0)
         )
+      )
     ),
     easyClose = F,
     footer = tagList(
       actionButton(
-        inputId = "go",
+        inputId = "next_step",
+        label = "Siguiente")
+    )
+  )
+  
+  instructions_modal <- modalDialog(
+    title = "Paso 2 de 2",
+    fluidRow(
+      box(
+        width = 12,
+        status = "primary",
+        title = "Instrucciones",
+        p("Your objective is to fish as much as possible, without collapsing the stock"),
+        p("1) Observa el tamaño de la población"),
+        p("2) Elige el tamaño de tu captura"),
+        p("3) Usa el botón de `Pescar`")
+      ) 
+    ),
+    easyClose = F,
+    footer = tagList(
+      actionButton(
+        inputId = "done",
         label = "Comenzar")
     )
   )
   
-  showModal(query_modal)
-  observeEvent(input$go, {
-    removeModal()
-  })
-  
   values <- reactiveValues(
+    game = 1,
     i = 1,
-    df = df,
-    iterations = iterations,
     N = N,
     gr = gr,
-    ge = ge,
-    ce = ce
+    ce = ce,
+    df = df
   )
   
+  # Show modal windows
+  showModal(info_modal)
+
+  # Close and go to next one
   observeEvent(
-    input$update_pars, {
-      values$i <- 1
-      values$iterations <- input$iterations
-      values$N <- input$InitCond
-      values$gr <- input$gr
-      set.seed(20)
-      values$ge <- rlnormcustom(values$iterations, m = 1, s = 0.1)                            
-      values$ce <- ifelse(runif(values$iterations) > input$catprob, 1, (1 - input$catmort))               
-      values$df <- tibble(Nc = values$N, Np = 0, obsN = 0, TotCatch = 0, ge = 0, ce = 0, t = 0)
-  })
-  
-  output$test <- renderText(values$ce)
-  
-  observeEvent(
-    input$button, {
-      values$i <- values$i + 1
-      values$df <- rbind(values$df,
-                         get_N(harvest = input$harvest,
-                               N = N,
-                               K = K,
-                               gr = values$gr,
-                               ge = values$ge[values$i],
-                               ce = values$ce[values$i],
-                               FishermenType = c("A", "M", "C", "C"),
-                               i = values$i
-                         ))
-      values$N <- tail(values$df$Nc, 1)
+    input$next_step, {
+      removeModal()
+      showModal(instructions_modal)
+      
+      file_id <- paste0(session_id, "_",
+                        values$game, "_",
+                        input$age_bracket, "_",
+                        input$gender, "_",
+                        input$region)
+      
+      values$gsheet_id <- make_table(file_id, data = df)
     })
   
-  ## SYSTEM SETTINGS SIDE ######################################################
-
-  output$ge_plot <- renderPlot({
-    tibble(ge = values$ge,
-           time = 1:length(ge)) %>% 
-      ggplot(aes(x = time, y = ge)) + 
-      geom_line() + 
-      labs(x = "time",
-           y = "Background Env. Variability") +
-      theme_bw()
-  })
+  # Close and start game
+  observeEvent(
+    input$done, {
+      removeModal()
+    })
   
-  output$ce_plot <- renderPlot({
-    tibble(ce = values$ce,
-           time = 1:length(ce)) %>% 
-      ggplot(aes(x = time, y = ce)) + 
-      geom_col() + 
-      lims(y = c(0, 1)) +
-      labs(x = "time",
-           y = "Survival from cat event") +
-      theme_bw()
-  })
-  
-  output$pop_plot <- renderPlot({
-    n <- numeric(length = values$iterations)
-    n[1] <- N  # set the initial condition
-    
-    for (i in (1:(values$iterations - 1))){  # run the simulation
+  observeEvent(
+    input$restart, {
+      removeModal()
       
-      n[i+1] <- SRfun(n[i], K, values$gr, values$ge[i], values$ce[i])
+      file_id <- paste0(session_id, "_",
+                        values$game, "_",
+                        input$age_bracket, "_",
+                        input$gender, "_",
+                        input$region)
       
-    }
-    
-    tibble(N = n,
-           time = 1:length(N)) %>% 
-      ggplot(aes(x = time, y = N)) + 
-      geom_line() +
-      geom_hline(yintercept = K, linetype = "dashed") +
-      geom_vline(xintercept = c(1+which(values$ce == catmort)), color = "red") +
-      theme_bw()
-  })
+      values$gsheet_id <- make_table(new_name = file_id,
+                                     data = df)
+      
+      values$df <- tibble(
+        last_N = 0,
+        H = 0,
+        E = 0,
+        Nt = N,
+        h = 0,
+        ce = 0,
+        t = 0
+      )
+      
+      values$N <- N
+      values$i <- 1
+    })
   
-  #  GAME SIDE #################################################################
+  
+  observeEvent(
+    input$go_fish, {
+      values_this_round <- get_N(
+        harvest = input$harvest,
+        N = values$N,
+        K = K,
+        gr = values$gr,
+        ce = values$ce[values$i],
+        t = values$i)
+      
+      values$i <- values$i + 1
+      
+      values$df <- rbind(values$df,
+                         values_this_round)
+      
+      # Update data on Google Drive
+      sheet_append(ss = values$gsheet_id,
+      data = values_this_round)
+      # Update population size
+      values$N <- tail(values$df$Nt, 1)
+      
+      if(values$N == 0) {
+        values$game <- values$game + 1
+        showModal(
+          modalDialog(
+            title = "Colapsó la población",
+            fluidRow(
+              p("Pescaste demasiado."),
+              p("Jugar de nuevo?")
+            ),
+            easyClose = F,
+            footer = tagList(
+              actionButton(
+                inputId = "restart",
+                label = "Reiniciar")
+            )
+          )
+        )
+      }
+    })
+  
+   #  GAME SIDE #################################################################
   
   output$harvest_slider <- renderUI({
+    df <- values$df
+    
     sliderInput(
       inputId = "harvest",
-      label = "Harvest (N):",
+      label = paste0("Elige tu captura para la ronda ", values$i, ":"),
       min = 0,
-      max = floor(values$N),
+      step = 1,
+      max = min(values$N, 5),
       value = 0)
   })
   
   output$pop_space <- renderPlot({
     req(input$harvest)
     df <- tail(values$df, 1)
+    pop <- floor(df$Nt)
     
     set.seed(1)
-    data <- tibble(x = runif(n = df$Nc, min = 0, max = 10),
-                   y = runif(n = df$Nc, min = 0, max = 10),
-                   to_catch = c(rep(T, times = input$harvest), rep(F, times = df$Nc - input$harvest)),
+    data <- tibble(x = runif(n = df$Nt, min = 0, max = 10),
+                   y = runif(n = df$Nt, min = 0, max = 10),
+                   to_catch = c(rep(T, times = input$harvest), rep(F, times = df$Nt - input$harvest)),
                    image = ifelse(to_catch,
                                   here::here("www", "caught_fish.png"),
                                   here::here("www", "fish.png")))
@@ -328,47 +357,39 @@ server <- function(input, output) {
     
     ggplot(data = data,
                 mapping = aes(x = x, y = y, image = image)) +
-      geom_image(size = 0.05,
-                 position = position_jitter(width = 0.5, height = 0.5)) +
-      lims(x = c(-1, 11),
-           y = c(-1, 11)) +
+      geom_image(size = 0.075) +
+      lims(x = c(-0.5, 10.5),
+           y = c(-0.5, 10.5)) +
       coord_equal() +
-      scale_color_manual(values = c("red", "black")) +
       theme_void() +
-      ggtitle(label = paste0("There are ", floor(df$Nc), " fish"))
-      
+      labs(caption = paste0("Población: ", pop)) +
+      theme(plot.caption = element_text(
+        size = 15,
+        hjust = 0.5,
+        colour = case_when((pop > (0.75 * K)) ~ "#175E54",
+                           between(pop, 0.5 * K, 0.75 * K) ~ "darkorange1",
+                           (pop < (0.5 * K)) ~ "#8C1515"),
+        face = "bold"))
     
   })
   
-  output$catch_others <- renderPlot({
-    ggplot(values$df, aes(x = t, y = TotCatch - h)) +
-      geom_col() +
-      theme_bw() +
-      lims(x = c(-1, values$iterations),
-           y = c(0, K / 5)) +
-      labs(x = "Ronda",
-           y = "Captura de los demás") +
-      theme_bw()
+  output$your_catch <- renderInfoBox({
+    req(input$harvest)
+    df <- values$df
+    infoBox(title = "Tu ultima captura:",
+            subtitle = paste0("Todas tus capturas:", sum(df$h)),
+            value = tail(df$h, 1),
+            icon = icon("user"))
   })
   
-  output$results <- renderDataTable({
-    DT::datatable(data = values$df)
+  output$others_total_catch <- renderInfoBox({
+    req(input$harvest)
+    df <- values$df
+    infoBox(title = "Captura de todos",
+            subtitle = paste0("Captura total de todos:", sum(df$H)),
+            value = tail(df$H, 1),
+            icon = icon("users"))
   })
-  
-  # output$pop_ts <- renderPlot({
-  #   
-  #   p <- ggplot(values$df, aes(x = t, y = Nc)) +
-  #     geom_point() +
-  #     theme_bw() +
-  #     lims(x = c(0, values$iterations), y = c(0, 120)) +
-  #     theme_bw()
-  #   
-  #   if(dim(values$df)[1] > 1){
-  #     p <- p + geom_line()
-  #   }
-  #   p
-  # })
-  
   
 }
 

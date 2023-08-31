@@ -12,11 +12,10 @@
 
 ## SET UP ######################################################################
 
-get_N <- function(harvest, N, K, gr, s, t) {
+get_N <- function(harvest, N, K, gr, s, t, g) {
   # Total harvests
   n_fishers <- 4
-  lambda <- ifelse(s == 1, 1, 2)
-  H <- sum(rpois(n = n_fishers, lambda = lambda)) + harvest
+  H <- sum(sample(x = 0:5, size = n_fishers)) + harvest
   
   # Escapement
   E <- max((N - H), 0)
@@ -30,16 +29,18 @@ get_N <- function(harvest, N, K, gr, s, t) {
                     Nt = Ntp1,
                     h = harvest,
                     s,
-                    t = t)
+                    t = t,
+                    g = g)
   
   return(results)
 }
 
-
-
-
-
-
+get_s <- function(mort = 0.5, rounds = 15, mort_prob = 0.1) {
+  sample(x = c(1, 1 - mort),
+         size = rounds,
+         replace = T,
+         prob = c(1 - mort_prob, mort_prob))
+}
 
 
 make_table <- function(new_name, data) {
@@ -59,12 +60,12 @@ make_table <- function(new_name, data) {
 encode_age <- function(age) {
   case_when(
     age == "Ninguno" ~ 0,
-    age == "10-20" ~ 1,
-    age == "20-30" ~ 2,
-    age == "30-40" ~ 3,
-    age == "40-50" ~ 4,
-    age == "50-60" ~ 5,
-    age == "60+" ~ 6)
+    age == "0-20" ~ 1,
+    age == "21-30" ~ 2,
+    age == "31-40" ~ 3,
+    age == "41-50" ~ 4,
+    age == "51-60" ~ 5,
+    age == "61+" ~ 6)
 }
 
 encode_region <- function(region) {
@@ -76,3 +77,53 @@ encode_region <- function(region) {
     region == "Golfo de México" ~ 4,
     region == "Caribe" ~ 5)
 }
+
+encode_phone <- function(phone) {
+  clean <- str_remove_all(phone, "[:alpha:]|[:punct:]")
+  if(!str_length(clean) == 10){
+    return("0000000000")
+  } else {
+    return(clean)
+  }
+}
+
+
+#########################
+# Model parameters
+K <- 100                                                                        # population carrying capacity
+rounds <- 15                                                                    # number of rounds
+gr <- 0.1                                                                       # 10 percent annual rate of increase
+mort_prob <- 0.1                                                                # probability of a catastrophic event
+mort <- 0.5                                                                     # catastrophic mortality
+
+# Derivated parameters
+N <- K                                                                          # Initial Conditions
+# set.seed(20)
+# vector of survivals
+s <- get_s(mort = 0.5, rounds = 15, mort_prob = 0.1)
+
+s <- c(1, 1, 0.5, 1, 1)
+
+df <- tibble(
+  last_N = 0,
+  H = 0,
+  E = 0,
+  Nt = N,
+  h = 0,
+  s = 0,
+  t = 0,
+  g = 0
+)
+
+pop_space_master <- tibble(x = runif(n = K, min = -5, max = 5),
+                           y = runif(n = K, min = -5, max = 5)) %>% 
+  mutate(dist = sqrt(x ^ 2 + y ^ 2)) %>% 
+  arrange(dist)
+
+base_plot <- ggplot() +
+  lims(x = c(-5.5, 5.5),
+       y = c(-5.5, 5.5)) +
+  coord_equal() +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "#EEF2FE", 
+                                        color = "transparent"))

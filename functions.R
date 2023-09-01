@@ -100,9 +100,7 @@ mort <- 0.5                                                                     
 N <- K                                                                          # Initial Conditions
 # set.seed(20)
 # vector of survivals
-s <- get_s(mort = 0.5, rounds = 15, mort_prob = 0.1)
-
-s <- c(1, 1, 0.5, 1, 1)
+s <-rep(1, 15)
 
 df <- tibble(
   last_N = 0,
@@ -122,8 +120,10 @@ pop_space_master <- tibble(x = runif(n = K, min = -5, max = 5),
 
 base_plot <- ggplot() +
   lims(x = c(-5.5, 5.5),
-       y = c(-5.5, 5.5)) +
+       y = c(-6, 5)) +
   coord_equal() +
   theme_void() +
   theme(panel.background = element_rect(fill = "#EEF2FE", 
                                         color = "transparent"))
+
+game_color <- "#053061"

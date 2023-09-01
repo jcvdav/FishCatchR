@@ -38,17 +38,21 @@ body <- f7SingleLayout(
     f7Card(
       plotOutput(
         outputId = "pop_space",
+        # width = "90%"
         height = 300
       ),
       f7Card(
-        uiOutput(outputId = "pop"),
-        f7Slider(
-          inputId = "harvest",
-          label = "Elige tu captura para la ronda:",
-          min = 0,
-          max = 5,
-          value = 0,
-          scale = TRUE
+        f7Row(uiOutput(outputId = "round"),
+              uiOutput(outputId = "pop")),
+        # f7Row(
+          f7Slider(
+            inputId = "harvest",
+            label = "Elige tu captura para la ronda:",
+            min = 0,
+            max = 5,
+            value = 0,
+            scale = TRUE
+          # )
         ),
         footer = tagList(
           f7Button(
@@ -62,7 +66,8 @@ body <- f7SingleLayout(
 )
 
 ui <- f7Page(
-  options = list(theme = "auto",
+  options = list(theme = "ios",
+                 filled = T,
                  color = "#08519B"),
   title = "Título del juego",
   body
@@ -78,7 +83,8 @@ server <- function(input, output) {
     N = N,
     gr = gr,
     s = s,
-    df = df
+    df = df,
+    game_color = game_color,
   )
   
   # Show modal windows
@@ -139,7 +145,7 @@ server <- function(input, output) {
             h1("Reglas del juego:"),
             p("1) Cada juego tiene 15 rondas"),
             p("2) Puedes pescar entre 1 y 5 peces en cada ronda"),
-            p("3) Cuando hayas escogido cuanto quieres pescar, usa el botón de 'PESCAR!'. Se ve así:"),
+            p("3) Cuando hayas escogido cuanto quieres pescar, usa el botón de 'PESCAR!', se ve así:"),
             f7Button(inputId = "NA",
                      label = "PESCAR!"),
             p("Por cada pez que hayas capturdo al final de cada juego recibirás un boleto para la rifa de X."),
@@ -169,7 +175,9 @@ server <- function(input, output) {
     input$restart, {
       
       if(!input$restart) {
-        f7Notif(text = "Adios!")
+        f7Notif(title = "Gracias por jugar",
+                subtitle = "Desconectando...",
+                text = "Adios")
         Sys.sleep(3)
         stopApp()
       }
@@ -193,6 +201,15 @@ server <- function(input, output) {
       values$N <- N
       values$i <- 1
       values$s <- get_s()
+      values$game_color <- "#B1182B"
+      
+      f7Notif(
+        title = paste("Alerta!"),
+        subtitle = "Hay cambio climático",
+        text = "En 1 de cada 10 rondas puede haber ondas de calor que matan a la mitad del recurso",
+        icon = f7Icon("flame"),
+      )
+      
     })
   
   # This is the fishing module -------------------------------------------------
@@ -209,10 +226,10 @@ server <- function(input, output) {
       
       if(values$s[values$i] < 1) {
         f7Notif(
-          title = paste("Alerta!"),
-          subtitle = "Oh no! Hubo mortalidad!",
+          title = paste("¡Alerta!"),
+          subtitle = "¡Hubo mortalidad!",
           text = "Una onda de calor mató a la mitad del recurso",
-          icon = f7Icon("fish"),
+          icon = f7Icon("flame"),
         )
       }
       
@@ -227,7 +244,7 @@ server <- function(input, output) {
       # Update population size
       values$N <- tail(values$df$Nt, 1)
       
-      if(values$N == 0 | values$i == 5) {
+      if(values$N <= 0 | values$i == 15) {
         f7Dialog(
           id = "restart",
           type = "confirm",
@@ -240,7 +257,7 @@ server <- function(input, output) {
   #  GAME SIDE #################################################################
   
   observeEvent(
-    input$go_fish, {
+    input$go_fish | input$restart, {
       updateF7Slider(
         inputId = "harvest",
         min = 0,
@@ -254,15 +271,17 @@ server <- function(input, output) {
   output$pop_space <- renderPlot({
     df <- tail(values$df, 1)
     pop <- floor(df$Nt)
+    bug_colors <- rev(c(rep(values$game_color, pop - input$harvest), rep("black", input$harvest)))
     
     base_plot +
       geom_text(data = head(pop_space_master, df$Nt),
                 mapping = aes(x = x,
                               y = y,
-                              label = emoji("fish")),
-                family="EmojiOne",
-                size = 6,
-                color = "#08519B")
+                              label = emoji("crab")),
+                family = "EmojiOne",
+                fontface = "bold",
+                size = 20,
+                color = bug_colors)
     
   })
   
@@ -273,7 +292,8 @@ server <- function(input, output) {
              na.rm = T)
     f7Chip(label = paste("Tus capturas totales:", h),
            icon = f7Icon("person"),
-           iconStatus = "blue")
+           iconStatus = "blue",
+           status = "gray")
   })
   
   output$everyones_catch <- renderUI({
@@ -283,18 +303,26 @@ server <- function(input, output) {
              na.rm = T)
     f7Chip(label = paste("Captura del grupo:", H),
            icon = f7Icon("person_3"),
-           iconStatus = "blue")
+           iconStatus = "blue",
+           status = "gray")
   })
   
   output$pop <- renderUI({
     
     pop <- floor(tail(values$df$Nt, 1))
     
-    f7Chip(label = paste("Tamaño de la pobación:",
+    f7Chip(label = paste("Población:",
                          pop),
            status = case_when((pop > (0.75 * K)) ~ "green",
                               between(pop, 0.5 * K, 0.75 * K) ~ "orange",
                               (pop < (0.5 * K)) ~ "red"))
+  })
+  
+  output$round <- renderUI({
+    
+    f7Chip(label = paste("Ronda:", values$i, "de 15"),
+           icon = f7Icon("clock"),
+           iconStatus = "blue")
   })
   
 }

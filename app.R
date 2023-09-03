@@ -22,37 +22,33 @@ options(
 ## DEFINE UI ###################################################################
 body <- f7SingleLayout(
   navbar = f7Navbar(
-    title = "Título del juego",
+    title = "Vamos a pescar!",
     hairline = TRUE,
     shadow = TRUE
   ),
   toolbar = f7Toolbar(
     position = "top",
-    uiOutput(outputId = "your_hist_catch"),
-    uiOutput(outputId = "everyones_catch")
+    f7Row(uiOutput(outputId = "round"))
   ),
   # main content
   f7Shadow(
-    intensity = 16,
+    intensity = 24,
     hover = TRUE,
     f7Card(
       plotOutput(
         outputId = "pop_space",
-        # width = "90%"
         height = 300
       ),
+      f7Row(uiOutput(outputId = "everyones_catch"),
+            uiOutput(outputId = "pop")),
       f7Card(
-        f7Row(uiOutput(outputId = "round"),
-              uiOutput(outputId = "pop")),
-        # f7Row(
-          f7Slider(
-            inputId = "harvest",
-            label = "Elige tu captura para la ronda:",
-            min = 0,
-            max = 5,
-            value = 0,
-            scale = TRUE
-          # )
+        f7Slider(
+          inputId = "harvest",
+          label = "Elige tu captura para este viaje:",
+          min = 0,
+          max = 5,
+          value = 0,
+          scale = TRUE
         ),
         footer = tagList(
           f7Button(
@@ -69,7 +65,7 @@ ui <- f7Page(
   options = list(theme = "ios",
                  filled = T,
                  color = "#08519B"),
-  title = "Título del juego",
+  title = "PescaData",
   body
 )
 
@@ -96,7 +92,9 @@ server <- function(input, output) {
     closeOnEscape = FALSE,
     swipeToClose = FALSE,
     animate = FALSE,
-    f7Card(title = "Ingresa tus datos (opcional):",
+    f7Block(
+      h1("Ingresa tus datos")
+    ),
       f7Picker(
         inputId = "age_bracket",
         label = "Rango de edad:",
@@ -106,7 +104,11 @@ server <- function(input, output) {
                     "31-40",
                     "41-50",
                     "51-60",
-                    "61+")
+                    "61+"),
+        value = "Seleccionar...",
+        openIn = "popover",
+        rotateEffect = F,
+        scrollToInput = F
       ),
       f7Picker(
         inputId = "region",
@@ -116,20 +118,21 @@ server <- function(input, output) {
                     "Golfo de California",
                     "Pacífico",
                     "Golfo de México",
-                    "Caribe")
-      )
-    ),
-    f7Card(
-      p("Si quieres participar en la rifa de X, ingresa tu número de celular
+                    "Caribe"),
+        value = "Seleccionar...",
+        openIn = "popover",
+        rotateEffect = F,
+        scrollToInput = F
+        ),
+    f7Block(
+      p("Si quieres participar en la rifa, ingresa tu número de celular
         para que podamos contactarte:"),
       f7Text(inputId = "phone",
              label = "10 dígitos de tu teléfono:",
-             placeholder = "xxx-xxx-xx-xx"),
-      footer = tagList(
-        p("Cierra este mensaje para ver las reglas del juego")
-      )
+             placeholder = "xxx-xxx-xx-xx")
     )
   )
+  
   
   # Ventana de instrucciones
   observeEvent(
@@ -141,20 +144,20 @@ server <- function(input, output) {
         f7Popup(
           id = "done",
           title = "Ventana 2 / 2",
+          button_text = "Jugar",
           f7Block(
             h1("Reglas del juego:"),
-            p("1) Cada juego tiene 15 rondas"),
-            p("2) Puedes pescar entre 1 y 5 peces en cada ronda"),
-            p("3) Cuando hayas escogido cuanto quieres pescar, usa el botón de 'PESCAR!', se ve así:"),
+            p("1) Vas a jugar contra otros 4 pescadores"),
+            p("2) Cada juego tiene 15 viajes de pesca"),
+            p("3) Puedes pescar entre 1 y 5 peces en cada viaje"),
+            p("4) Cuando hayas escogido cuanto quieres pescar, usa el botón de 'PESCAR!', se ve así:"),
             f7Button(inputId = "NA",
                      label = "PESCAR!"),
-            p("Por cada pez que hayas capturdo al final de cada juego recibirás un boleto para la rifa de X."),
-            p("Cierra este mensaje para empezar a jugar")
+            p("Por cada pez que hayas capturdo al final de cada juego recibirás un boleto para la rifa.")
           )
         )
         
         # Encode file name parameters
-        print(input$phone)
         encoded_age <- encode_age(input$age_bracket)
         encoded_region <- encode_region(input$region)
         encoded_phone <- encode_phone(input$phone)
@@ -185,29 +188,23 @@ server <- function(input, output) {
       # Update game counter
       values$game <- values$game + 1
       
-      # Encoede file name parameters
-      encoded_age <- encode_age(input$age_bracket)
-      encoded_region <- encode_region(input$region) 
-      
-      file_id <- paste0(session_id, "_",
-                        # values$game, "_",
-                        encoded_age, "_",
-                        # input$gender, "_",
-                        encoded_region)
-      
-      values$df <- rbind(values$df,
-                         df)
-      
+      # Re set game df
+      values$df <- df
+      # Reset populaito size
       values$N <- N
+      # Rest round counter
       values$i <- 1
+      # Get neww vector ot survivals
       values$s <- get_s()
+      # Update color of bugs
       values$game_color <- "#B1182B"
       
       f7Notif(
         title = paste("Alerta!"),
         subtitle = "Hay cambio climático",
-        text = "En 1 de cada 10 rondas puede haber ondas de calor que matan a la mitad del recurso",
+        text = "En uno de cada diez viajes puede haber ondas de calor que matan a la mitad del recurso",
         icon = f7Icon("flame"),
+        closeTimeout = 10000
       )
       
     })
@@ -230,6 +227,7 @@ server <- function(input, output) {
           subtitle = "¡Hubo mortalidad!",
           text = "Una onda de calor mató a la mitad del recurso",
           icon = f7Icon("flame"),
+          closeTimeout = 10000
         )
       }
       
@@ -238,18 +236,23 @@ server <- function(input, output) {
       values$df <- rbind(values$df,
                          values_this_round)
       
-      # Update data on Google Drive
-      sheet_append(ss = values$gsheet_id,
-                   data = values_this_round)
+
       # Update population size
       values$N <- tail(values$df$Nt, 1)
       
+      
       if(values$N <= 0 | values$i == 15) {
+        
+        # Update data on Google Drive
+        sheet_append(ss = values$gsheet_id,
+                     data = values$df %>% 
+                       filter(!g == 0))
+        
         f7Dialog(
           id = "restart",
           type = "confirm",
           title = ifelse(values$i == 15, "Fin del juego", "Se acabó el recurso"),
-          "Quieres volver a jugar?"
+          "¿Quieres volver a jugar?"
         )
       }
     })
@@ -262,16 +265,15 @@ server <- function(input, output) {
         inputId = "harvest",
         min = 0,
         max = min(values$N, 5),
+        scaleSteps = min(values$N, 5),
         value = 0,
         scale = TRUE,
-        scaleSubSteps = 1
+        scaleSubSteps = 0
       )
     })
   
   output$pop_space <- renderPlot({
     df <- tail(values$df, 1)
-    pop <- floor(df$Nt)
-    bug_colors <- rev(c(rep(values$game_color, pop - input$harvest), rep("black", input$harvest)))
     
     base_plot +
       geom_text(data = head(pop_space_master, df$Nt),
@@ -281,19 +283,8 @@ server <- function(input, output) {
                 family = "EmojiOne",
                 fontface = "bold",
                 size = 20,
-                color = bug_colors)
+                color = values$game_color)
     
-  })
-  
-  output$your_hist_catch <- renderUI({
-    # req(input$harvest)
-    h <- max(0, 
-             sum(values$df$h[values$df$g == values$game]),
-             na.rm = T)
-    f7Chip(label = paste("Tus capturas totales:", h),
-           icon = f7Icon("person"),
-           iconStatus = "blue",
-           status = "gray")
   })
   
   output$everyones_catch <- renderUI({
@@ -301,10 +292,10 @@ server <- function(input, output) {
     H <- max(0,
              tail(values$df$H[values$df$g == values$game], 1),
              na.rm = T)
-    f7Chip(label = paste("Captura del grupo:", H),
+    f7Chip(label = paste("Captura total anterior:", H),
            icon = f7Icon("person_3"),
            iconStatus = "blue",
-           status = "gray")
+           status = "blue")
   })
   
   output$pop <- renderUI({
@@ -320,9 +311,10 @@ server <- function(input, output) {
   
   output$round <- renderUI({
     
-    f7Chip(label = paste("Ronda:", values$i, "de 15"),
+    f7Chip(label = paste("Viaje:", values$i, "de 15"),
            icon = f7Icon("clock"),
-           iconStatus = "blue")
+           iconStatus = "blue",
+           status = "blue")
   })
   
 }

@@ -13,12 +13,22 @@
 ## SET UP ######################################################################
 
 get_N <- function(harvest, N, K, gr, s, t, g) {
-  # Total harvests
-  n_fishers <- 4
-  H <- sum(sample(x = 0:5, size = n_fishers)) + harvest
+  # Escapement after player's harvest
+  E <- max((N - harvest), 0)
   
-  # Escapement
-  E <- max((N - H), 0)
+  # Total harvests
+  H <- 0
+  if(E > 0) {
+    n_fishers <- 4
+    lambda <- ((0.519) + (-0.012 * t)) * 5
+    if(g > 1) {
+      lambda <- ((0.519 - 0.016) + (-0.012 * t)) * 5
+    }
+    
+    H_others <- min(sum(rpois(n = n_fishers, lambda = lambda)), E)
+    E <- max(E - H_others, 0)
+    H <- H_others + harvest
+  }
   
   # Next N
   Ntp1 <- min(round((1 + gr) * E * s), K)
@@ -59,7 +69,7 @@ make_table <- function(new_name, data) {
 
 encode_age <- function(age) {
   case_when(
-    age == "Ninguno" ~ 0,
+    age %in% c("Ninguno", "Seleccionar...") ~ 0,
     age == "0-20" ~ 1,
     age == "21-30" ~ 2,
     age == "31-40" ~ 3,
@@ -70,7 +80,7 @@ encode_age <- function(age) {
 
 encode_region <- function(region) {
   case_when(
-    region == "Ninguna" ~ 0,
+    region %in% c("Ninguna", "Seleccionar...") ~ 0,
     region == "BC Pacifico" ~ 1,
     region == "Golfo de California" ~ 2,
     region == "Pacífico" ~ 3,
@@ -123,7 +133,66 @@ base_plot <- ggplot() +
        y = c(-6, 5)) +
   coord_equal() +
   theme_void() +
-  theme(panel.background = element_rect(fill = "#EEF2FE", 
+  theme(panel.background = element_rect(fill = "white", # "#EEF2FE", 
                                         color = "transparent"))
 
 game_color <- "#053061"
+
+f7Popup <- function(..., id, title = NULL,
+                    backdrop = TRUE,
+                    closeByBackdropClick = TRUE,
+                    closeOnEscape = FALSE,
+                    animate = TRUE,
+                    swipeToClose = FALSE,
+                    fullsize = FALSE,
+                    closeButton = TRUE,
+                    button_text = "Siguiente",
+                    session = shiny::getDefaultReactiveDomain()) {
+  
+  message <- shiny:::dropNulls(
+    list(
+      id = session$ns(id),
+      backdrop = backdrop,
+      closeByBackdropClick = closeByBackdropClick,
+      closeOnEscape = closeOnEscape,
+      animate = animate,
+      swipeToClose = swipeToClose
+    )
+  )
+  
+  content <- shiny::tags$div(
+    class = "block",
+    if (!is.null(title)) shiny::tags$div(class = "block-title", title),
+    ...
+  )
+  
+  if (closeButton) {
+    content <- htmltools::tagAppendChild(
+      content,
+      shiny::tags$a(
+        class = "link popup-close",
+        style = "position: absolute; bottom: -50px; right: 50px;",
+        href = "#",
+        button_text,
+        f7Icon("arrowtriangle_right_fill")
+      )
+    )
+  }
+  
+  popup_tag <- shiny::tags$div(
+    class = paste0("popup", if (fullsize) "popup-tablet-fullscreen"),
+    content
+  )
+  
+  message$content <- as.character(popup_tag)
+  
+  # see my-app.js function
+  session$sendCustomMessage(
+    type = "popup",
+    message = jsonlite::toJSON(
+      message,
+      auto_unbox = TRUE,
+      json_verbatim = TRUE
+    )
+  )
+}

@@ -214,6 +214,11 @@ server <- function(input, output) {
   # This is the fishing module -------------------------------------------------
   observeEvent(
     input$go_fish, {
+      insertUI(selector = "#go_fish",
+               where = "afterEnd",
+               # beep.wav should be in /www of the shiny app
+               ui = tags$audio(src = "facebook.wav", type = "audio/wav", autoplay = T, controls = NA, style="display:none;")
+      )
       values_this_round <- get_N(
         harvest = input$harvest,
         N = values$N,

@@ -20,9 +20,14 @@ get_N <- function(harvest, N, K, gr, s, t, g) {
   H <- 0
   if(E > 0) {
     n_fishers <- 4
+    # Formula is 5 * (intercept + slope on round)
+    # this is then multiplied times 5 (max possible catch) because the
+    # coefficients are "Dependent variable: Average group catch as fraction of
+    # maximum possible catch" (Table 2 from Finkbeiner et al)
     lambda <- ((0.519) + (-0.012 * t)) * 5
     if(g > 1) {
-      lambda <- ((0.519 - 0.016) + (-0.012 * t)) * 5
+      # In the presence of a shock, the other four robots play as if they communicate
+      lambda <- ((0.519 - 0.106) + (-0.012 * t)) * 5
     }
     
     H_others <- min(sum(rpois(n = n_fishers, lambda = lambda)), E)
@@ -67,25 +72,49 @@ make_table <- function(new_name, data) {
   return(a)
 }
 
+encode_bug <- function(bug) {
+  case_when(bug == "crab" ~ 1,
+            bug == "shrimp" ~ 2,
+            bug == "fish" ~ 3)
+}
+
+encode_fisher <- function(fisher) {
+  case_when(
+    fisher %in% c("No especificar", "Seleccionar...") ~ 0,
+    fisher == "Sí" ~ 1,
+    fisher == "No" ~ 2
+    )
+}
+
 encode_age <- function(age) {
   case_when(
-    age %in% c("Ninguno", "Seleccionar...") ~ 0,
+    age %in% c("No especificar", "Seleccionar...") ~ 0,
     age == "0-20" ~ 1,
     age == "21-30" ~ 2,
     age == "31-40" ~ 3,
     age == "41-50" ~ 4,
     age == "51-60" ~ 5,
-    age == "61+" ~ 6)
+    age == "61+" ~ 6
+    )
 }
 
 encode_region <- function(region) {
   case_when(
-    region %in% c("Ninguna", "Seleccionar...") ~ 0,
+    region %in% c("No especificar", "Seleccionar...") ~ 0,
     region == "BC Pacifico" ~ 1,
     region == "Golfo de California" ~ 2,
-    region == "Pacífico" ~ 3,
+    region == "Pacífico Sur" ~ 3,
     region == "Golfo de México" ~ 4,
-    region == "Caribe" ~ 5)
+    region == "Caribe" ~ 5
+    )
+}
+
+encode_sex <- function(sexo) {
+  case_when(
+    sexo %in% c("No especificar", "Seleccionar...") ~ 0,
+    sexo == "Hombre" ~ 1,
+    sexo == "Mujer" ~ 2
+    )
 }
 
 encode_phone <- function(phone) {

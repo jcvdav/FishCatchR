@@ -1,6 +1,5 @@
 pacman::p_load(
   here,
-  # ggimage,
   emojifont,
   googledrive,
   googlesheets4,
@@ -22,7 +21,7 @@ options(
 ## DEFINE UI ###################################################################
 body <- f7SingleLayout(
   navbar = f7Navbar(
-    title = "Vamos a pescar!",
+    title = "La Pesca Cambiante",
     hairline = TRUE,
     shadow = TRUE
   ),
@@ -40,8 +39,10 @@ body <- f7SingleLayout(
         height = 300
       ),
       f7Card(
-        f7Row(uiOutput(outputId = "everyones_catch")),
-        f7Row(uiOutput(outputId = "pop"), uiOutput(outputId = "round")),
+        f7Row(uiOutput(outputId = "everyones_catch"),
+              uiOutput(outputId = "your_catch")),
+        f7Row(uiOutput(outputId = "pop"),
+              uiOutput(outputId = "round")),
         f7Slider(
           inputId = "harvest",
           label = "Elige tu captura para este viaje:",
@@ -65,13 +66,15 @@ ui <- f7Page(
   options = list(theme = "ios",
                  filled = T,
                  color = "#08519B"),
-  title = "PescaData",
+  title = "PescaCambiante",
   body
 )
 
-# Define server logic
+## Define server logic #########################################################
 server <- function(input, output) {
-  session_id <- openssl::md5(timestamp(quiet = T))
+  bug <- sample(x = c("crab", "fish", "shrimp"),
+                size = 1)
+  session_id <- str_replace_all(str_squish(date()), " |\\:", "_")
   
   values <- reactiveValues(
     game = 1,
@@ -95,44 +98,67 @@ server <- function(input, output) {
     f7Block(
       h1("Ingresa tus datos")
     ),
-      f7Picker(
-        inputId = "age_bracket",
-        label = "Rango de edad (opcional):",
-        choices = c("Ninguno",
-                    "0-20",
-                    "21-30",
-                    "31-40",
-                    "41-50",
-                    "51-60",
-                    "61+"),
-        value = "Seleccionar...", 
-        openIn = "sheet",
-        toolbarCloseText = "Listo!",
-        rotateEffect = F,
-        scrollToInput = F
-      ),
-      f7Picker(
-        inputId = "region",
-        label = "Región (opcional):",
-        choices = c("Ninguna",
-                    "BC Pacifico",
-                    "Golfo de California",
-                    "Pacífico",
-                    "Golfo de México",
-                    "Caribe"),
-        value = "Seleccionar...",
-        openIn = "sheet",
-        toolbarCloseText = "Listo!",
-        rotateEffect = F,
-        scrollToInput = F
-        ),
-    f7Block(
-      p("Número de teléfono a 10 dígitos (Opcional):"),
+    f7Picker(
+      inputId = "fisher",
+      label = "¿Eres pescador?",
+      choices = c("No especificar",
+                  "Sí",
+                  "No"),
+      value = "Seleccionar...", 
+      openIn = "sheet",
+      toolbarCloseText = "Listo!",
+      rotateEffect = F,
+      scrollToInput = F
+    ),
+    f7Picker(
+      inputId = "age_bracket",
+      label = "Rango de edad (opcional):",
+      choices = c("No especificar",
+                  "0-20",
+                  "21-30",
+                  "31-40",
+                  "41-50",
+                  "51-60",
+                  "61+"),
+      value = "Seleccionar...", 
+      openIn = "sheet",
+      toolbarCloseText = "Listo!",
+      rotateEffect = F,
+      scrollToInput = F
+    ),
+    f7Picker(
+      inputId = "sexo",
+      label = "Género",
+      choices = c("No especificar",
+                  "Hombre",
+                  "Mujer"),
+      value = "Selecionar...",
+      openIn = "sheet",
+      toolbarCloseText = "Listo!",
+      rotateEffect = F,
+      scrollToInput = F
+    ),
+    f7Picker(
+      inputId = "region",
+      label = "Región (opcional):",
+      choices = c("No especificar",
+                  "BC Pacifico",
+                  "Golfo de California",
+                  "Pacífico Sur",
+                  "Golfo de México",
+                  "Caribe"),
+      value = "Seleccionar...",
+      openIn = "sheet",
+      toolbarCloseText = "Listo!",
+      rotateEffect = F,
+      scrollToInput = F
+    ),
+    # f7Block(
       f7Text(inputId = "phone",
              label = "10 dígitos de tu teléfono:",
              placeholder = "xxx-xxx-xx-xx")
     )
-  )
+  # )
   
   
   # Ventana de instrucciones
@@ -148,24 +174,29 @@ server <- function(input, output) {
           button_text = "Jugar",
           f7Block(
             h1("Reglas del juego:"),
-            p("1) Vas a jugar contra otros 4 pescadores"),
-            p("2) Cada juego tiene 15 viajes de pesca"),
-            p("3) Puedes pescar entre 0 y 5 peces en cada viaje"),
+            p("1) El juego tiene dos mundos. El primero es azul y el segundo rojo"),
+            p("2) Vas a jugar contra otros 4 pescadores"),
+            p("3) Cada juego tiene 15 viajes de pesca"),
+            p("4) Puedes pescar entre 0 y 5 peces en cada viaje"),
             h1("Cómo jugar:"),
             p("Tu objetivo es pescar lo más que puedas, pero sin acabarte el recurso."),
-            p("En la siguiente pantalla, selecciona el número de peces que quieres pescar, y después usa el botón de 'PESCAR!', se ve así:"),
-            f7Button(inputId = "NA",
-                     label = "PESCAR!"),
+            p("En la siguiente pantalla, selecciona el número de peces que quieres pescar, y después usa el botón de 'PESCAR!'")
           )
         )
         
         # Encode file name parameters
+        encoded_fisher <- encode_fisher(input$fisher)
         encoded_age <- encode_age(input$age_bracket)
+        encoded_sex <- encode_sex(input$sexo)
         encoded_region <- encode_region(input$region)
         encoded_phone <- encode_phone(input$phone)
+        encoded_bug <- encode_bug(bug)
         
         file_id <- paste(session_id,
+                         encoded_bug,
+                         encoded_fisher,
                          encoded_age,
+                         encoded_sex,
                          encoded_region,
                          encoded_phone,
                          sep = "_")
@@ -285,10 +316,11 @@ server <- function(input, output) {
     df <- tail(values$df, 1)
     
     base_plot +
-      geom_text(data = head(pop_space_master, df$Nt),
+      geom_text(data = head(pop_space_master,
+                            df$Nt),
                 mapping = aes(x = x,
                               y = y,
-                              label = emoji("crab")),
+                              label = emoji(bug)),
                 family = "EmojiOne",
                 fontface = "bold",
                 size = 20,
@@ -296,18 +328,28 @@ server <- function(input, output) {
     
   })
   
+  # Everyone's catch
   output$everyones_catch <- renderUI({
     # req(input$harvest)
-    pop <- floor(tail(values$df$Nt, 1))
     H <- max(0,
              tail(values$df$H[values$df$g == values$game], 1),
              na.rm = T)
     
-    f7Chip(label = paste("Captura total anterior:", H),
+    f7Chip(label = paste("Entre todos capturaron:", H),
            icon = f7Icon("person_3"),
-           status = case_when((pop > (0.75 * K)) ~ "green",
-                              between(pop, 0.5 * K, 0.75 * K) ~ "orange",
-                              (pop < (0.5 * K)) ~ "red"))
+           status = "blue")
+  })
+  
+  # Your catch last time
+  output$your_catch <- renderUI({
+    # req(input$harvest)
+    h <- max(0,
+             tail(values$df$h[values$df$g == values$game], 1),
+             na.rm = T)
+    
+    f7Chip(label = paste("Tu capturaste:", h),
+           icon = f7Icon("person_3"),
+           status = "blue")
   })
   
   output$pop <- renderUI({

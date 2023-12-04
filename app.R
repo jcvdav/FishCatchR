@@ -185,12 +185,12 @@ server <- function(input, output) {
         )
         
         # Encode file name parameters
+        encoded_bug <- encode_bug(bug)
         encoded_fisher <- encode_fisher(input$fisher)
         encoded_age <- encode_age(input$age_bracket)
         encoded_sex <- encode_sex(input$sexo)
         encoded_region <- encode_region(input$region)
         encoded_phone <- encode_phone(input$phone)
-        encoded_bug <- encode_bug(bug)
         
         file_id <- paste(session_id,
                          encoded_bug,

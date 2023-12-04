@@ -82,7 +82,8 @@ encode_fisher <- function(fisher) {
   case_when(
     fisher %in% c("No especificar", "Seleccionar...") ~ 0,
     fisher == "Sí" ~ 1,
-    fisher == "No" ~ 2
+    fisher == "No" ~ 2,
+    T ~ 0
     )
 }
 
@@ -94,7 +95,8 @@ encode_age <- function(age) {
     age == "31-40" ~ 3,
     age == "41-50" ~ 4,
     age == "51-60" ~ 5,
-    age == "61+" ~ 6
+    age == "61+" ~ 6,
+    T ~ 0
     )
 }
 
@@ -105,7 +107,8 @@ encode_region <- function(region) {
     region == "Golfo de California" ~ 2,
     region == "Pacífico Sur" ~ 3,
     region == "Golfo de México" ~ 4,
-    region == "Caribe" ~ 5
+    region == "Caribe" ~ 5,
+    T ~ 0
     )
 }
 
@@ -113,7 +116,8 @@ encode_sex <- function(sexo) {
   case_when(
     sexo %in% c("No especificar", "Seleccionar...") ~ 0,
     sexo == "Hombre" ~ 1,
-    sexo == "Mujer" ~ 2
+    sexo == "Mujer" ~ 2,
+    T ~ 0
     )
 }
 

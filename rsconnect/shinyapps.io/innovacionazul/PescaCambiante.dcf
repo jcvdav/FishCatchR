@@ -5,7 +5,7 @@ account: innovacionazul
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10184395
-bundleId: 7904890
+bundleId: 8016135
 url: https://innovacionazul.shinyapps.io/PescaCambiante/
 version: 1
 asMultiple: FALSE

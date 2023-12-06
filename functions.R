@@ -180,6 +180,7 @@ f7Popup <- function(..., id, title = NULL,
                     fullsize = FALSE,
                     closeButton = TRUE,
                     button_text = "Siguiente",
+                    survey = FALSE,
                     session = shiny::getDefaultReactiveDomain()) {
   
   message <- shiny:::dropNulls(
@@ -207,6 +208,19 @@ f7Popup <- function(..., id, title = NULL,
         style = "position: absolute; bottom: -50px; right: 50px;",
         href = "#",
         button_text,
+        f7Icon("arrowtriangle_right_fill")
+      )
+    )
+  }
+  
+  if(survey) {
+    content <- htmltools::tagAppendChild(
+      content,
+      shiny::tags$a(
+        class = "link popup-close",
+        style = "position: absolute; top: -15px; right: 10px;",
+        href = "#",
+        "Saltar encuesta",
         f7Icon("arrowtriangle_right_fill")
       )
     )

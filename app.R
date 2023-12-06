@@ -90,13 +90,14 @@ server <- function(input, output) {
   f7Popup(
     id = "next_step",
     title = "Ventana 1 / 2",
+    survey = TRUE,
     closeButton = TRUE,
     closeByBackdropClick = FALSE,
     closeOnEscape = FALSE,
     swipeToClose = FALSE,
     animate = FALSE,
     f7Block(
-      h1("Ingresa tus datos")
+      h1("Ingresa tus datos (opcional)")
     ),
     f7Picker(
       inputId = "fisher",
@@ -112,7 +113,7 @@ server <- function(input, output) {
     ),
     f7Picker(
       inputId = "age_bracket",
-      label = "Rango de edad (opcional):",
+      label = "Rango de edad:",
       choices = c("No especificar",
                   "0-20",
                   "21-30",
@@ -140,7 +141,7 @@ server <- function(input, output) {
     ),
     f7Picker(
       inputId = "region",
-      label = "Región (opcional):",
+      label = "Región:",
       choices = c("No especificar",
                   "BC Pacifico",
                   "Golfo de California",

@@ -5,8 +5,7 @@ account: jcvd
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6843462
-bundleId: 7904888
+bundleId: 9696120
 url: https://jcvd.shinyapps.io/FishCatchR/
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: scripts/JuanCamillo_GameTheoryExperiment_Model_ver02GADL (1).r|scripts/template.R

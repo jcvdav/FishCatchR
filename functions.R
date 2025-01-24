@@ -66,7 +66,7 @@ make_table <- function(new_name, data) {
   print(new_name)
   
   a <- drive_mv(file = ss,
-                path = "~/FishCatchR_data/",
+                path = "~/FishCatchR_data_2025/",
                 overwrite = F)
   
   return(a)
